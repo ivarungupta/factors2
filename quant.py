@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 import glob
-
+from technical_factors import technical_factor_calculations
 
 # Initialize the FMP data fetcher
 api_key = "bEiVRux9rewQy16TXMPxDqBAQGIW8UBd"
@@ -135,10 +135,6 @@ final_tickers = [ticker for ticker in tickers_considered if ticker not in insuff
 with open("final_tickers.pickle", "wb") as f:
     pickle.dump(final_tickers, f)
 
-# # Save the stock data dictionary
-# with open("stock_data.pickle", "wb") as f:
-#     pickle.dump(stock_data, f)
-
 print(f"\nOriginal number of tickers: {len(tickers_considered)}")
 print(f"Number of tickers with insufficient data: {len(insufficient_data_stocks)}")
 print(f"Final number of tickers: {len(final_tickers)}")
@@ -152,8 +148,6 @@ print(f"Files are saved in: {os.path.abspath(output_dir)}")
 # Load final_tickers from pickle file
 with open("final_tickers.pickle", "rb") as f:
     final_tickers = pickle.load(f)
-
-#print(f"Total number of final tickers: {len(final_tickers)}")
 
 # Create an empty list to store all data
 all_data = []
@@ -226,120 +220,11 @@ risk_free_rate_annual = 0.045
 risk_free_rate_20 = (1 + risk_free_rate_annual) ** (20 / 252) - 1
 risk_free_rate_60 = (1 + risk_free_rate_annual) ** (60 / 252) - 1
 
-factor_columns = [
-    'VOL60', 'DAVOL60', 'VOSC', 'VMACD', 'ATR42',
-    'ROC60', 'Volume1Q', 'TRIX30', 'Price1Q', 'PLRC36',
-    'Variance60', 'Skewness60', 'Kurtosis60', 'SharpeRatio20', 'SharpeRatio60',
-    'MACD60', 'boll_up', 'boll_down', 'MFI42',
-    'GrowthRate', 'Momentum', 'Beta'
-]
+factor_columns = list(technical_factor_calculations.keys())
 
 # Add all factor columns with NaN values
 for col in factor_columns:
     combined_df3[col] = np.nan
-
-#Emotional Factors
-def calculate_volume_volatility_vol60(df, window=60):
-    """Calculate 60-day volume volatility."""
-    return df['close'].pct_change().rolling(window=window).std()
-
-def calculate_volume_ma_davol60(df, window=60):
-    """Calculate 60-day average volume."""
-    return df['volume'].rolling(window=window).mean()
-
-def calculate_volume_oscillator_vosc(df, window=60):
-    """Calculate volume oscillator."""
-    volume_ma = df['volume'].rolling(window=window).mean()
-    return df['volume'] - volume_ma
-
-def calculate_volume_macd(df, fast_span=36, slow_span=78):
-    """Calculate volume MACD."""
-    fast_ma = df['volume'].ewm(span=fast_span).mean()
-    slow_ma = df['volume'].ewm(span=slow_span).mean()
-    return fast_ma - slow_ma
-
-def calculate_atr42(df, window=42):
-    """Calculate 42-day Average True Range."""
-    return (df['high'] - df['low']).rolling(window=window).mean()
-
-#Momentum Factors
-def calculate_rate_of_change_roc60(df, window=60):
-    """Calculate 60-day rate of change."""
-    return (df['close'] - df['close'].shift(window)) / df['close'].shift(window)
-
-def calculate_volume_quarterly_1q(df, window=60):
-    """Calculate quarterly volume."""
-    return df['volume'].rolling(window=window).sum()
-
-def calculate_trix30(df, span=30):
-    """Calculate TRIX indicator."""
-    triple_ema = df['close'].ewm(span=span).mean().ewm(span=span).mean().ewm(span=span).mean()
-    return triple_ema.pct_change(periods=1)
-
-def calculate_price_quarterly_price1q(df, window=60):
-    """Calculate quarterly price change."""
-    return df['close'] - df['close'].shift(window)
-
-def calculate_price_level_ratio_PLRC36(df, window=36):
-    """Calculate price level ratio."""
-    return df['close'].rolling(window=window).mean() / df['close'].shift(window) - 1
-
-#Risk Factors
-def calculate_variance_60(df, window=60):
-    """Calculate 60-day variance of returns."""
-    return df['close'].pct_change().rolling(window=window).var()
-
-def calculate_skewness60(df, window=60):
-    """Calculate 60-day skewness of returns."""
-    return df['close'].pct_change().rolling(window=window).skew()
-
-def calculate_kurtosis60(df, window=60):
-    """Calculate 60-day kurtosis of returns."""
-    return df['close'].pct_change().rolling(window=window).kurt()
-
-def calculate_sharpe_ratio(df, window, risk_free_rate):
-    """Calculate Sharpe ratio for given window."""
-    returns = df['close'].pct_change()
-    annualized_returns = returns.rolling(window=window).mean() * 252
-    annualized_std = returns.rolling(window=window).std() * np.sqrt(252)
-    return (annualized_returns - risk_free_rate) / annualized_std
-
-#Technical Factors
-def calculate_macd_60(df, fast_span=36, slow_span=78):
-    """Calculate MACD indicator."""
-    fast_ma = df['close'].ewm(span=fast_span).mean()
-    slow_ma = df['close'].ewm(span=slow_span).mean()
-    return fast_ma - slow_ma
-
-def calculate_bollinger_bands(df, window=60, num_std=2):
-    """Calculate Bollinger Bands."""
-    rolling_mean = df['close'].rolling(window=window).mean()
-    rolling_std = df['close'].rolling(window=window).std()
-    return {
-        'boll_up': rolling_mean + (rolling_std * num_std),
-        'boll_down': rolling_mean - (rolling_std * num_std)
-    }
-
-def calculate_mfi_42(df, window=42):
-    """Calculate Money Flow Index."""
-    typical_price = (df['close'] + df['high'] + df['low']) / 3
-    raw_money_flow = typical_price * df['volume']
-    positive_flow = raw_money_flow.where(typical_price > typical_price.shift(1), 0)
-    negative_flow = raw_money_flow.where(typical_price < typical_price.shift(1), 0)
-    positive_flow_sum = positive_flow.rolling(window=window).sum()
-    negative_flow_sum = negative_flow.rolling(window=window).sum()
-    money_flow_ratio = positive_flow_sum / negative_flow_sum
-    return 100 - (100 / (1 + money_flow_ratio))
-
-#Style Factors
-def calculate_growth_rate(df, window=252):
-    """Calculate growth rate using log returns."""
-    return np.log(df['close'] / df['close'].shift(window))
-
-def calculate_momentum(df, window=252):
-    """Calculate momentum as price ratio."""
-    return df['close'] / df['close'].shift(window)
-
 
 # Get unique stock symbols
 symbols = combined_df3['symbol'].unique()
@@ -356,39 +241,12 @@ for symbol in symbols:
         # Calculate returns first
         stock_data['returns'] = stock_data['close'].pct_change()
 
-        # Emotional Factors
-        stock_data['VOL60'] = calculate_volume_volatility_vol60(stock_data)
-        stock_data['DAVOL60'] = calculate_volume_ma_davol60(stock_data)
-        stock_data['VOSC'] = calculate_volume_oscillator_vosc(stock_data)
-        stock_data['VMACD'] = calculate_volume_macd(stock_data)
-        stock_data['ATR42'] = calculate_atr42(stock_data)
-
-        # Momentum Factors
-        stock_data['ROC60'] = calculate_rate_of_change_roc60(stock_data)
-        stock_data['Volume1Q'] = calculate_volume_quarterly_1q(stock_data)
-        stock_data['TRIX30'] = calculate_trix30(stock_data)
-        stock_data['Price1Q'] = calculate_price_quarterly_price1q(stock_data)
-        stock_data['PLRC36'] = calculate_price_level_ratio_PLRC36(stock_data)
-
-        # Risk Factors
-        stock_data['Variance60'] = calculate_variance_60(stock_data)
-        stock_data['Skewness60'] = calculate_skewness60(stock_data)
-        stock_data['Kurtosis60'] = calculate_kurtosis60(stock_data)
-        stock_data['SharpeRatio20'] = calculate_sharpe_ratio(stock_data, 20, risk_free_rate_20)
-        stock_data['SharpeRatio60'] = calculate_sharpe_ratio(stock_data, 60, risk_free_rate_60)
-
-        # Technical Factors
-        stock_data['MACD60'] = calculate_macd_60(stock_data)
-
-        bollinger_bands = calculate_bollinger_bands(stock_data)
-        stock_data['boll_up'] = bollinger_bands['boll_up']
-        stock_data['boll_down'] = bollinger_bands['boll_down']
-
-        stock_data['MFI42'] = calculate_mfi_42(stock_data)
-
-        # Style Factors
-        stock_data['GrowthRate'] = calculate_growth_rate(stock_data)
-        stock_data['Momentum'] = calculate_momentum(stock_data)
+        # Calculate all technical factors
+        for factor_name, calc_function in technical_factor_calculations.items():
+            try:
+                stock_data[factor_name] = calc_function(stock_data)
+            except Exception as e:
+                print(f"Error calculating {factor_name} for {symbol}: {str(e)}")
 
         # Forward fill any remaining NaN values (up to 5 days)
         for col in factor_columns:
@@ -1057,332 +915,6 @@ print(len(merged_df_with_ttm_and_price.columns)) #no of columns
 merged_df_with_ttm_and_price
 
 merged_df_with_ttm_and_price.columns
-
-"""## Calculation of Factors
-
-In this step, we calculate various financial factors for each ticker using data from the income statement, balance sheet, and cash flow statements. These factors are calculated on a yearly basis and assigned to each day of the corresponding year. Below are the detailed explanations of each factor:
-
-### 1. Quality Factors
-
-- **Net Profit to Total Operating Revenue (TTM)**:
-  This ratio is calculated as:
-  $$
-  \text{Net Profit to Total Operating Revenue (TTM)} = \frac{\text{Net Income}}{\text{Total Revenue}}
-  $$
-  This measures the profitability of the company relative to its total revenue.
-
-- **Return on Equity (ROE) (TTM)**:
-  This ratio is calculated as:
-  $$
-  \text{ROE (TTM)} = \frac{\text{Net Income}}{\text{Stockholders' Equity}}
-  $$
-  It indicates how effectively the company is using its equity base to generate profits.
-
-- **Gross Margin Improvement (GMI)**:
-  GMI is calculated as the change in gross margin compared to the previous year:
-  $$
-  \text{GMI} = \left( \frac{\text{Gross Profit}}{\text{Total Revenue}} \right)_{\text{current year}} - \left( \frac{\text{Gross Profit}}{\text{Total Revenue}} \right)_{\text{previous year}}
-  $$
-  This measures the improvement or decline in gross margin over the previous year.
-
-- **Earnings Manipulation Detection (DECM)**:
-  This factor detects potential earnings manipulation by analyzing changes in accounts receivable and inventory relative to total assets:
-  $$
-  \text{DECM} = \frac{\Delta \text{Accounts Receivable} + \Delta \text{Inventory}}{\text{Total Assets}}
-  $$
-  It signals potential earnings manipulation if there are significant increases in these components relative to the assets.
-
-- **Accruals Quality Factor (ACCA)**:
-  This factor measures the quality of earnings by comparing accruals to actual cash flows:
-  $$
-  \text{ACCA} = \frac{\text{Net Income} - \text{Cash Flow from Operating Activities}}{\text{Total Assets}}
-  $$
-  A higher value indicates lower quality of earnings.
-
-### 2. Fundamental Factors
-
-- **Total Liabilities**:
-  This factor is directly taken from the balance sheet as:
-  $$
-  \text{Total Liabilities} = \text{Total Liabilities (Net Minority Interest)}
-  $$
-  It represents the total amount of liabilities the company holds.
-
-- **Cash Flow to Price Ratio**:
-  This ratio is calculated as:
-  $$
-  \text{Cash Flow to Price Ratio} = \frac{\text{Cash Flow from Continuing Operating Activities} / \text{Shares Outstanding}}{\text{Close Price}}
-  $$
-  It measures the cash flow generated by the company relative to its stock price.
-
-- **Net Profit (TTM)**:
-  This factor represents the net income of the company for the trailing twelve months (TTM):
-  $$
-  \text{Net Profit (TTM)} = \text{Net Income}
-  $$
-
-- **Earnings Before Interest and Taxes (EBIT)**:
-  This factor represents the company's earnings before interest and taxes for the year:
-  $$
-  \text{EBIT} = \text{Earnings Before Interest and Taxes}
-  $$
-
-### 3. Growth Factors
-
-- **Net Profit Growth Rate**:
-  This factor measures the growth rate of net profit over the previous year:
-  $$
-  \text{Net Profit Growth Rate} = \frac{\text{Net Income}_{\text{current year}}}{\text{Net Income}_{\text{previous year}}} - 1
-  $$
-
-- **Operating Revenue Growth Rate**:
-  This factor measures the growth rate of total revenue over the previous year:
-  $$
-  \text{Operating Revenue Growth Rate} = \frac{\text{Total Revenue}_{\text{current year}}}{\text{Total Revenue}_{\text{previous year}}} - 1
-  $$
-
-- **Net Asset Growth Rate**:
-  This factor measures the growth rate of stockholders' equity over the previous year:
-  $$
-  \text{Net Asset Growth Rate} = \frac{\text{Stockholders' Equity}_{\text{current year}}}{\text{Stockholders' Equity}_{\text{previous year}}} - 1
-  $$
-
-- **Net Operating Cash Flow Growth Rate**:
-  This factor measures the growth rate of cash flow from operating activities over the previous year:
-  $$
-  \text{Net Operating Cash Flow Growth Rate} = \frac{\text{Cash Flow from Continuing Operating Activities}_{\text{current year}}}{\text{Cash Flow from Continuing Operating Activities}_{\text{previous year}}} - 1
-  $$
-
-- **PEG Ratio**:
-  The PEG ratio evaluates the stock's valuation by comparing the price-to-earnings (P/E) ratio with the net profit growth rate.
-  $$
-  \text{PEG} = \frac{\text{P/E Ratio}}{\text{Net Profit Growth Rate}}
-  $$
-  Here, the P/E Ratio is the ratio of the close price to earnings per share (EPS).
-
-### 4. Stock Factors
-
-- **Net Asset Per Share**:
-  This factor is calculated as:
-  $$
-  \text{Net Asset Per Share} = \frac{\text{Stockholders' Equity}}{\text{Shares Outstanding}}
-  $$
-  It measures the equity per share held by the company.
-
-- **Net Operating Cash Flow Per Share**:
-  This factor is calculated using operating cash flow:
-  $$
-  \text{Net Operating Cash Flow Per Share} = \frac{\text{Operating Cash Flow}}{\text{Shares Outstanding}}
-  $$
-
-- **Cash Flow Per Share (TTM)**:
-  This factor is calculated using free cash flow:
-  $$
-  \text{Cash Flow Per Share (TTM)} = \frac{\text{Free Cash Flow}}{\text{Shares Outstanding}}
-  $$
-
-- **Earnings Per Share (TTM)**:
-  This factor is calculated as:
-  $$
-  \text{Earnings Per Share (TTM)} = \frac{\text{Net Income}}{\text{Shares Outstanding}}
-  $$
-
-- **Retained Earnings Per Share**:
-  This factor is calculated as:
-  $$
-  \text{Retained Earnings Per Share} = \frac{\text{Retained Earnings}}{\text{Shares Outstanding}}
-  $$
-
-### 5. Style Factors
-
-- **Book to Price Ratio**:
-  If `Book Value Per Share` is available, it is calculated as:
-  $$
-  \text{Book to Price Ratio} = \frac{\text{Book Value Per Share}}{\text{Close Price}}
-  $$
-  If `Book Value Per Share` is not available, the calculation is done as:
-  $$
-  \text{Book to Price Ratio} = \frac{\text{Common Stock Equity}}{\text{Close Price}}
-  $$
-  This factor measures how the book value of the company compares to its market price.
-
-- **Size (Market Capitalization)**:
-  This factor is calculated as the product of the company's closing price and the number of shares outstanding. It represents the total market value of the company.
-  $$
-  \text{Market Capitalization} = \text{Close Price} \times \text{Shares Outstanding}
-  $$
-  This factor was calculated in Step 1 and stored as the `market_cap` column. It is also assigned to the `size` column for analysis.
-
-- **Beta**:
-  Beta measures the sensitivity of the stock's returns relative to the S&P 500 index. It is calculated as the covariance of the stock's returns with the market returns, divided by the variance of the market returns. A beta greater than 1 indicates higher sensitivity, while a beta less than 1 indicates lower sensitivity.
-  $$
-  \beta = \frac{\text{Cov}(\text{R}_{\text{stock}}, \text{R}_{\text{market}})}{\text{Var}(\text{R}_{\text{market}})}
-  $$
-  where $\text{R}_{\text{stock}}$ represents the daily returns of the stock and $\text{R}_{\text{market}}$ represents the daily returns of the S&P 500 index.
-
-- **Liquidity**:
-  Liquidity measures how easily the stock can be traded in the market without impacting its price. It is calculated as the ratio of the trading volume to the number of shares outstanding.
-  $$
-  \text{Liquidity} = \frac{\text{Volume}}{\text{Shares Outstanding}}
-  $$
-  Higher liquidity values indicate that the stock is more easily tradable in the market.
-
-- **Momentum**:
-  Momentum is calculated as the ratio of the current stock price to the stock price from 12 months ago. It captures the relative change in the stock price over the past year:
-  $$
-  \text{Momentum} = \frac{\text{Close}_{\text{today}}}{\text{Close}_{\text{252 days ago}}}
-  $$
-  where $\text{Close}_{\text{252 days ago}}$ is the closing price 252 trading days ago (approximately 1 year). A momentum value greater than 1 indicates that the stock has appreciated over the past year, while a value less than 1 indicates depreciation.
-
-- **Growth**:
-  Growth represents the logarithmic growth of the stock price over a 12-month period. It is calculated as the natural logarithm of the ratio between the current stock price and the stock price from 12 months ago:
-  $$
-  \text{Growth} = \ln \left( \frac{\text{Close}_{\text{today}}}{\text{Close}_{\text{252 days ago}}} \right)
-  $$
-  This is equivalent to the difference in the natural logarithm of the current stock price and the stock price from 252 trading days ago:
-  $$
-  \text{Growth} = \ln(\text{Close}_{\text{today}}) - \ln(\text{Close}_{\text{252 days ago}})
-  $$
-  This factor highlights the exponential growth or decline in the stock's value over the past year.
-
-### 6. Emotional Factors
-
-- **20-Day Volatility (VOL20)**:
-  This factor measures the standard deviation of daily returns over the past 20 days, indicating the level of price variability. A higher value represents higher volatility and uncertainty.
-  $$
-  \text{VOL20} = \sqrt{\frac{\sum_{i=1}^{20} (\text{R}_{i} - \overline{\text{R}})^2}{20}}
-  $$
-  where $\text{R}_{i}$ represents daily returns and $\overline{\text{R}}$ is the average return over the past 20 days.
-
-- **20-Day Average Volume (DAVOL20)**:
-  This factor represents the average trading volume over the past 20 days, reflecting investor interest and liquidity in the stock.
-  $$
-  \text{DAVOL20} = \frac{\sum_{i=1}^{20} \text{Volume}_{i}}{20}
-  $$
-
-- **Volume Oscillator (VOSC)**:
-  The volume oscillator calculates the difference between the current volume and its 20-day moving average, providing insight into changes in trading activity.
-  $$
-  \text{VOSC} = \text{Volume} - \text{DAVOL20}
-  $$
-
-- **Volume MACD (VMACD)**:
-  This factor is the difference between two exponentially weighted moving averages (12-day and 26-day) of volume, signaling volume momentum.
-  $$
-  \text{VMACD} = \text{EMA}_{12}(\text{Volume}) - \text{EMA}_{26}(\text{Volume})
-  $$
-
-- **Average True Range (ATR14)**:
-  ATR14 measures the average range between the high and low prices over the past 14 days, indicating market volatility and potential price movement.
-  $$
-  \text{ATR14} = \frac{\sum_{i=1}^{14} (\text{High}_{i} - \text{Low}_{i})}{14}
-  $$
-
-### 7. Risk Factors
-
-- **20-Day Variance (Variance20)**:
-  This factor measures the variance of daily returns over the past 20 days, providing insight into the dispersion of returns.
-  $$
-  \text{Variance20} = \frac{\sum_{i=1}^{20} (\text{R}_{i} - \overline{\text{R}})^2}{20}
-  $$
-
-- **20-Day Sharpe Ratio (sharpe_ratio_20)**:
-  The Sharpe ratio measures the excess return per unit of risk (standard deviation) over the past 20 days.
-  $$
-  \text{Sharpe Ratio}_{20} = \frac{\overline{\text{R}} - \text{R}_{f}}{\text{VOL20}}
-  $$
-  where $\overline{\text{R}}$ is the average daily return, and $\text{R}_{f}$ is the risk-free rate (assumed to be zero for simplification).
-
-- **20-Day Kurtosis (Kurtosis20)**:
-  Kurtosis measures the "tailedness" of the return distribution over the past 20 days. A high value indicates more outliers.
-  $$
-  \text{Kurtosis}_{20} = \frac{\frac{1}{20} \sum_{i=1}^{20} (\text{R}_{i} - \overline{\text{R}})^4}{\left(\frac{1}{20} \sum_{i=1}^{20} (\text{R}_{i} - \overline{\text{R}})^2\right)^2}
-  $$
-
-- **20-Day Skewness (Skewness20)**:
-  Skewness measures the asymmetry of the return distribution over the past 20 days. A negative skew indicates a higher probability of negative returns.
-  $$
-  \text{Skewness}_{20} = \frac{\frac{1}{20} \sum_{i=1}^{20} (\text{R}_{i} - \overline{\text{R}})^3}{\left(\frac{1}{20} \sum_{i=1}^{20} (\text{R}_{i} - \overline{\text{R}})^2\right)^{3/2}}
-  $$
-
-- **60-Day Sharpe Ratio (sharpe_ratio_60)**:
-  This factor extends the Sharpe ratio calculation to a 60-day period to capture longer-term risk-adjusted performance.
-  $$
-  \text{Sharpe Ratio}_{60} = \frac{\overline{\text{R}_{60}} - \text{R}_{f}}{\text{VOL60}}
-  $$
-  where $\overline{\text{R}_{60}}$ is the average return over 60 days, and $\text{VOL60}$ is the standard deviation over 60 days.
-
-### 8. Momentum Factors
-
-- **20-Day Rate of Change (ROC20)**:
-  This factor calculates the percentage change in price over the past 20 days, indicating the momentum of the stock.
-  $$
-  \text{ROC}_{20} = \frac{\text{Close}_{\text{today}} - \text{Close}_{\text{20 days ago}}}{\text{Close}_{\text{20 days ago}}}
-  $$
-
-- **One-Month Trading Volume (Volume1M)**:
-  This factor sums the trading volume over the past 20 trading days, reflecting the total trading activity in the past month.
-  $$
-  \text{Volume1M} = \sum_{i=1}^{20} \text{Volume}_{i}
-  $$
-
-- **10-Day Triple Exponential Moving Average (TRIX10)**:
-  TRIX is a momentum indicator that measures the percentage rate of change of a triple exponentially smoothed moving average. It is calculated using a 10-day period:
-  $$
-  \text{TRIX}_{10} = \frac{\text{EMA}_{3}(\text{EMA}_{2}(\text{EMA}_{1}(\text{Close})))}{\text{EMA}_{3}(\text{EMA}_{2}(\text{EMA}_{1}(\text{Close}))) - 1}
-  $$
-  where $\text{EMA}_{1}$, $\text{EMA}_{2}$, and $\text{EMA}_{3}$ are exponentially weighted moving averages with different spans.
-
-- **One-Month Price Change (Price1M)**:
-  This factor measures the percentage change in the stock price over the last month (20 trading days).
-  $$
-  \text{Price1M} = \text{Close}_{\text{today}} - \text{Close}_{\text{20 days ago}}
-  $$
-
-- **12-Day Price Momentum (PLRC12)**:
-  This factor measures the price momentum by comparing the 12-day moving average with the price 12 days ago:
-  $$
-  \text{PLRC12} = \frac{\text{MA}_{12}(\text{Close})}{\text{Close}_{\text{12 days ago}}} - 1
-  $$
-
-### 9. Technical Factors
-
-- **20-Day MACD (MAC20)**:
-  MACD (Moving Average Convergence Divergence) is calculated as the difference between a 12-day and 26-day exponential moving average (EMA) of the close price.
-  $$
-  \text{MACD}_{20} = \text{EMA}_{12}(\text{Close}) - \text{EMA}_{26}(\text{Close})
-  $$
-
-- **Bollinger Bands (boll_up, boll_down)**:
-  Bollinger Bands consist of a 20-day simple moving average (SMA) and two bands that are 2 standard deviations away from the SMA.
-  $$
-  \text{Bollinger Upper Band} = \text{SMA}_{20} + 2 \times \text{VOL20}
-  $$
-  $$
-  \text{Bollinger Lower Band} = \text{SMA}_{20} - 2 \times \text{VOL20}
-  $$
-
-- **14-Day Money Flow Index (MFI14)**:
-  The MFI14 is a volume-weighted RSI indicator that identifies overbought or oversold conditions.
-  1. Calculate the typical price:
-  $$
-  \text{Typical Price} = \frac{\text{High} + \text{Low} + \text{Close}}{3}
-  $$
-  2. Calculate raw money flow:
-  $$
-  \text{Raw Money Flow} = \text{Typical Price} \times \text{Volume}
-  $$
-  3. Calculate money flow ratio:
-  $$
-  \text{Money Flow Ratio} = \frac{\sum (\text{Positive Money Flow})}{\sum (\text{Negative Money Flow})}
-  $$
-  4. Calculate MFI14:
-  $$
-  \text{MFI14} = 100 - \frac{100}{1 + \text{Money Flow Ratio}}
-  $$
-
-After calculating all the factors for each ticker, the data is compiled and saved for further analysis. This enriched dataset can then be used for various machine learning and quantitative analysis applications to evaluate the performance and characteristics of each stock in the S&P 500 index.
-"""
 
 #Factor Calculation
 # print(len(factor_list))
