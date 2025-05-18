@@ -10,6 +10,7 @@ import seaborn as sns
 from datetime import datetime
 import glob
 from technical_factors import technical_factor_calculations
+from financial_factors import financial_factor_calculations
 
 # Initialize the FMP data fetcher
 api_key = "bEiVRux9rewQy16TXMPxDqBAQGIW8UBd"
@@ -552,7 +553,7 @@ def print_financial_statement(symbol, statement_type, start_date=None, end_date=
             print(f"📅 Filtered period: {start_date or 'beginning'} to {end_date or 'end'}")
 
         # Print the data
-        #print(f"\n�� Statement data:")
+        #print(f"\n Statement data:")
         print(df.sort_values('date', ascending=False))
 
         print(f"\n📋 Available columns:")
@@ -1224,14 +1225,14 @@ factor_calculations = {
 financial_factor_df = merged_df_with_ttm_and_price.copy()
 
 # Add new factor columns with NaN values
-for col in factor_calculations.keys():
+for col in financial_factor_calculations.keys():
     financial_factor_df[col] = pd.Series(np.nan, index=financial_factor_df.index, dtype='float64')
 
 # Calculate factors for each stock
 for symbol in financial_factor_df['symbol'].unique():
     stock_data = financial_factor_df[financial_factor_df['symbol'] == symbol].sort_values('date')
 
-    for factor_name, calc_function in factor_calculations.items():
+    for factor_name, calc_function in financial_factor_calculations.items():
         try:
             result = calc_function(stock_data)
             if result is not None:
@@ -1242,7 +1243,7 @@ for symbol in financial_factor_df['symbol'].unique():
             print(f"Error calculating {factor_name} for {symbol}: {str(e)}")
 
 # Handle any remaining invalid values
-for col in factor_calculations.keys():
+for col in financial_factor_calculations.keys():
     financial_factor_df[col] = (
         financial_factor_df[col]
         .replace([np.inf, -np.inf], np.nan)
