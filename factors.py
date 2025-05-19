@@ -529,7 +529,7 @@ def print_financial_statement(symbol, statement_type, start_date=None, end_date=
     }
 
     if statement_type.lower() not in valid_statements:
-        print(f"❌ Invalid statement type. Please choose from: {', '.join(valid_statements.keys())}")
+        print(f" Invalid statement type. Please choose from: {', '.join(valid_statements.keys())}")
         return
 
     # Build file path
@@ -540,9 +540,9 @@ def print_financial_statement(symbol, statement_type, start_date=None, end_date=
         df = pd.read_csv(file_path, parse_dates=["date"])
 
         # Print basic information
-        print(f"\n📊 {statement_type.upper()} Statement for {symbol}")
-        print(f"📅 Date Range: {df['date'].min().strftime('%Y-%m-%d')} to {df['date'].max().strftime('%Y-%m-%d')}")
-        print(f"📄 Total number of periods: {len(df)}")
+        print(f"\n{statement_type.upper()} Statement for {symbol}")
+        print(f"Date Range: {df['date'].min().strftime('%Y-%m-%d')} to {df['date'].max().strftime('%Y-%m-%d')}")
+        print(f"Total number of periods: {len(df)}")
 
         # Filter by date if provided
         if start_date or end_date:
@@ -550,21 +550,21 @@ def print_financial_statement(symbol, statement_type, start_date=None, end_date=
                 df = df[df["date"] >= pd.to_datetime(start_date)]
             if end_date:
                 df = df[df["date"] <= pd.to_datetime(end_date)]
-            print(f"📅 Filtered period: {start_date or 'beginning'} to {end_date or 'end'}")
+            print(f"Filtered period: {start_date or 'beginning'} to {end_date or 'end'}")
 
         # Print the data
         #print(f"\n Statement data:")
         print(df.sort_values('date', ascending=False))
 
-        print(f"\n📋 Available columns:")
+        print(f"\nAvailable columns:")
         print(df.columns.tolist())
 
     except FileNotFoundError:
-        print(f"❌ File not found: {file_path}")
+        print(f" File not found: {file_path}")
         print("Please check if the stock symbol is correct and the file exists.")
 
     except Exception as e:
-        print(f"⚠️ Error: {e}")
+        print(f" Error: {e}")
 
 
 # Example usage:
